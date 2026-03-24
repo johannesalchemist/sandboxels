@@ -20850,6 +20850,22 @@ window.onload = function() {
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 /* ── Telegram mobile overrides ─────────────────────────────────────────── */
+html, body { background: #000 !important; overflow: hidden !important; height: 100% !important; }
+#pagetitle { display: none !important; }
+#extraInfo { display: none !important; }
+nav#extraInfo { display: none !important; }
+.pagetitle { display: none !important; }
+/* hide R74n footer completely */
+body > *:not(#totalWrapper):not(script):not(style) { display: none !important; }
+#totalWrapper { padding: 0 !important; margin: 0 !important; height: 100vh !important; display: flex !important; flex-direction: column !important; }
+#gameWrapper { padding: 0 !important; flex: 1 !important; display: flex !important; flex-direction: column !important; }
+#gameDiv { padding: 0 !important; flex: 1 !important; }
+#canvasDiv { width: 100% !important; }
+#game { display: block !important; }
+.controlButton { min-height: 44px !important; min-width: 44px !important; font-size: 14px !important; touch-action: manipulation !important; }
+#controls { padding: 4px 4px !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+#elementControls { flex-wrap: nowrap !important; overflow-x: auto !important; }
+.elementButton { min-width: 48px !important; min-height: 44px !important; }
 html, body { background: #000 !important; overflow: hidden !important; }
 #pagetitle { display: none !important; }
 #extraInfo { display: none !important; }
