@@ -20889,7 +20889,7 @@ html, body { background: #000 !important; overflow: hidden !important; }
 
 <body>
 
-<canvas id="sky-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:0;pointer-events:none;display:block;"></canvas>
+
 <style>
 html, body { background: #08060f !important; }
 #totalWrapper, #gameWrapper, #gameDiv, #canvasDiv, #game {
@@ -21672,6 +21672,153 @@ if (document.referrer && document.referrer.indexOf("r74n.") === -1) {
 
 
 <script src="adenium-mod.js"></script>
+<script>
+(function boot() {
+    if (typeof resizeCanvas === "undefined" || typeof loadDesertPreset === "undefined") {
+        setTimeout(boot, 200); return;
+    }
+
+    // 1. Resize canvas
+    var ps = 4, tb = 56;
+    var nw = Math.floor(window.innerWidth  / ps) * ps;
+    var nh = Math.floor((window.innerHeight - tb) / ps) * ps;
+    resizeCanvas(nh, nw, ps, false);
+
+    // 2. Dark space background — Sandboxels draws this
+    settings.bg = "#08060f";
+
+    // 3. Load preset + default tool
+    setTimeout(function() {
+        settings.bg = "#08060f";
+        loadDesertPreset();
+        currentElement = "fine_water";
+        if (typeof updateCurrentElement === "function") updateCurrentElement("fine_water");
+        var wb = document.getElementById("tb-water");
+        if (wb) wb.classList.add("active");
+        console.log("[Boot] grid:", width, "x", height);
+    }, 400);
+})();
+</script>
+
+<!-- Sky overlay: drawn ON TOP of canvas, only in upper sky region, pointer-events:none -->
+<canvas id="sky-overlay" style="position:fixed;top:0;left:0;pointer-events:none;z-index:10;"></canvas>
+<script>
+(function skyInit() {
+    var ov = document.getElementById("sky-overlay");
+    var ctx = ov.getContext("2d");
+    var stars = null;
+
+    function resize() {
+        ov.width  = window.innerWidth;
+        ov.height = window.innerHeight;
+        stars = null;
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    function mkStars(W, H) {
+        stars = [];
+        for (var i = 0; i < 140; i++) {
+            stars.push({
+                x: Math.random()*W,
+                y: Math.random()*H*0.62,
+                r: Math.random()*0.9+0.25,
+                tw: Math.random()*Math.PI*2,
+                sp: 0.4+Math.random()*1.4
+            });
+        }
+    }
+
+    function frame() {
+        var W = ov.width, H = ov.height;
+        var t = Date.now()/1000;
+        if (!stars) mkStars(W, H);
+
+        // Only draw in top 65% — below that Sandboxels sand is visible
+        var skyH = H * 0.65;
+        ctx.clearRect(0, 0, W, H);
+
+        // Stars
+        stars.forEach(function(s) {
+            var a = 0.3 + 0.6*Math.sin(t*s.sp + s.tw);
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+            ctx.fillStyle = "rgba(255,255,255,"+a+")";
+            ctx.fill();
+        });
+
+        // NYXA Planet
+        var pr = Math.max(14, Math.floor(W*0.068));
+        var px = Math.floor(W*0.78);
+        var py = Math.floor(H*0.20);
+        var rot = t * 0.035;
+
+        // Only draw planet if it's in sky area
+        if (py + pr < skyH) {
+            // Atmosphere
+            var atmo = ctx.createRadialGradient(px,py,pr*0.88,px,py,pr*1.45);
+            atmo.addColorStop(0,"rgba(40,160,100,0.14)");
+            atmo.addColorStop(1,"rgba(0,0,0,0)");
+            ctx.beginPath(); ctx.arc(px,py,pr*1.45,0,Math.PI*2);
+            ctx.fillStyle = atmo; ctx.fill();
+
+            // Body
+            var g = ctx.createRadialGradient(px-pr*0.28,py-pr*0.28,pr*0.04,px,py,pr);
+            g.addColorStop(0,"#2a5a40");
+            g.addColorStop(0.55,"#182e22");
+            g.addColorStop(1,"#040c07");
+            ctx.beginPath(); ctx.arc(px,py,pr,0,Math.PI*2);
+            ctx.fillStyle = g; ctx.fill();
+
+            // Bands
+            ctx.save();
+            ctx.beginPath(); ctx.arc(px,py,pr*0.97,0,Math.PI*2); ctx.clip();
+            [{y:-.38,h:.17,c:"#1a3a28"},{y:.04,h:.20,c:"#1e3a2e"},{y:.30,h:.16,c:"#162436"}]
+            .forEach(function(b) {
+                ctx.fillStyle = b.c;
+                ctx.fillRect(px-pr, py+b.y*pr, pr*2, b.h*pr);
+            });
+            // Night side
+            var night = ctx.createLinearGradient(px,py,px+pr,py);
+            night.addColorStop(0.35,"rgba(0,0,0,0)");
+            night.addColorStop(1,"rgba(0,0,0,0.62)");
+            ctx.fillStyle = night; ctx.fillRect(px-pr,py-pr,pr*2,pr*2);
+            ctx.restore();
+
+            // Entity dots
+            [{a:.5,lat:.05,c:"#7af0c8"},{a:2.0,lat:-.15,c:"#f0c060"},{a:3.7,lat:.2,c:"#c080f0"},{a:5.0,lat:-.05,c:"#f07070"}]
+            .forEach(function(e) {
+                var ea = e.a + rot;
+                if (Math.cos(ea) < 0) return;
+                var ex = px + Math.cos(ea)*pr*0.68;
+                var ey = py + e.lat*pr;
+                ctx.beginPath(); ctx.arc(ex,ey,Math.max(1.5,pr*0.045),0,Math.PI*2);
+                ctx.fillStyle = e.c; ctx.fill();
+            });
+
+            // Label
+            ctx.font = Math.max(8,Math.floor(W*0.011))+"px monospace";
+            ctx.fillStyle = "rgba(80,200,130,0.5)";
+            ctx.fillText("NYXA-1", px+pr+4, py-pr*0.15);
+
+            // Moon
+            var ma = t*0.10;
+            var mx = px + Math.cos(ma)*pr*1.9;
+            var my = py + Math.sin(ma)*pr*0.52;
+            var mr = Math.max(2, pr*0.16);
+            if (my < skyH) {
+                var mg = ctx.createRadialGradient(mx-mr*.2,my-mr*.2,0,mx,my,mr);
+                mg.addColorStop(0,"#ddd8cc"); mg.addColorStop(1,"#605850");
+                ctx.beginPath(); ctx.arc(mx,my,mr,0,Math.PI*2);
+                ctx.fillStyle = mg; ctx.fill();
+            }
+        }
+
+        requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+})();
+</script>
 <script>
 (function boot() {
     if (typeof resizeCanvas === "undefined" || typeof loadDesertPreset === "undefined") {
