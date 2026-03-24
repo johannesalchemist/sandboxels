@@ -20850,7 +20850,7 @@ window.onload = function() {
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 /* ── Telegram mobile overrides ─────────────────────────────────────────── */
-html, body { background: #000 !important; overflow: hidden !important; height: 100% !important; }
+html, body { background: #000 !important; overflow: hidden !important; height: 100dvh !important; max-height: 100dvh !important; }
 #pagetitle { display: none !important; }
 #extraInfo { display: none !important; }
 nav#extraInfo { display: none !important; }
@@ -21576,19 +21576,22 @@ if (document.referrer && document.referrer.indexOf("r74n.") === -1) {
 <script>
 // Override canvas sizing for full Telegram viewport
 (function patchResize() {
-    if (typeof autoResizeCanvas === "undefined") {
+    if (typeof autoResizeCanvas === "undefined" || typeof resizeCanvas === "undefined") {
         setTimeout(patchResize, 100); return;
     }
-    var _orig = autoResizeCanvas;
     autoResizeCanvas = function(clear, ratio) {
-        var ps = parseInt(settings && settings.pixelsize) || 5;
-        var nw = Math.ceil(window.innerWidth  / ps) * ps;
-        var nh = Math.ceil(window.innerHeight * 0.76 / ps) * ps;
-        if (nw > 1400) nw = 1400;
+        var ps = 4;
+        var toolbarH = 56;
+        var underH = document.getElementById("underDiv")
+                   ? Math.min(document.getElementById("underDiv").scrollHeight, Math.floor(window.innerHeight * 0.22))
+                   : 100;
+        var nw = Math.floor(window.innerWidth / ps) * ps;
+        var nh = Math.floor((window.innerHeight - underH - toolbarH) / ps) * ps;
+        if (nh < 160) nh = 160;
         resizeCanvas(nh, nw, ps, clear);
+        console.log("[TG] Canvas:", nw, "x", nh, "| controls:", underH, "toolbar:", toolbarH);
     };
     autoResizeCanvas(false);
-    console.log("[TG] Canvas resized to full viewport");
 })();
 
 // Load desert preset AFTER resize + clearAll settle
@@ -21597,9 +21600,287 @@ if (document.referrer && document.referrer.indexOf("r74n.") === -1) {
         setTimeout(waitAndLoad, 300); return;
     }
     setTimeout(function() {
+        // Transparent canvas background so sky layer shows through
+        if (typeof settings !== 'undefined') {
+            settings.bg = 'transparent';
+        }
+        // Also set canvas CSS background transparent
+        var gc = document.getElementById('game');
+        if (gc) gc.style.background = 'transparent';
+        var cd = document.getElementById('canvasDiv');
+        if (cd) cd.style.background = 'transparent';
+        var gd = document.getElementById('gameDiv');
+        if (gd) gd.style.background = 'transparent';
+        var gw = document.getElementById('gameWrapper');
+        if (gw) gw.style.background = 'transparent';
+        var tw = document.getElementById('totalWrapper');
+        if (tw) tw.style.background = 'transparent';
+        document.body.style.background = 'transparent';
+
         loadDesertPreset();
-        console.log("[Adenium] Desert preset loaded — grid:", width, "x", height);
+
+        if (typeof elements !== 'undefined' && elements['fine_water']) {
+            currentElement = 'fine_water';
+            if (typeof updateCurrentElement === 'function') updateCurrentElement('fine_water');
+        }
+        var wb = document.getElementById('tb-water');
+        if (wb) wb.classList.add('active');
+        console.log("[Adenium] Ready");
     }, 600);
+})();
+</script>
+
+
+<style>
+#desert-toolbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: rgba(0,0,0,0.95);
+    border-top: 1px solid #444;
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.8);
+}
+#desert-toolbar button {
+    font-family: monospace;
+    font-size: 13px;
+    font-weight: bold;
+    padding: 8px 14px;
+    border: 1px solid #555;
+    border-radius: 4px;
+    background: #1a1a1a;
+    color: #eee;
+    cursor: pointer;
+    touch-action: manipulation;
+    min-width: 70px;
+    min-height: 40px;
+}
+#desert-toolbar button:active { background: #333; }
+#desert-toolbar button.active { border-color: #fff; background: #2a2a2a; color: #fff; }
+#tb-water  { border-color: #4a8fd4 !important; color: #7abfff !important; }
+#tb-seed   { border-color: #8B6914 !important; color: #c8a040 !important; }
+#tb-flower { border-color: #ff4da6 !important; color: #ff80c4 !important; }
+#tb-reset  { border-color: #884444 !important; color: #cc8888 !important; font-size: 11px; }
+</style>
+
+<div id="desert-toolbar">
+    <button id="tb-water"  onclick="tbSelect('fine_water')">💧 Water</button>
+    <button id="tb-seed"   onclick="tbSelect('adenium_seed')">🌱 Seed</button>
+    <button id="tb-flower" onclick="tbSelect('adenium_flower')">🌸 Flower</button>
+    <button id="tb-reset"  onclick="loadDesertPreset()">↺ Reset</button>
+</div>
+
+<script>
+function tbSelect(elem) {
+    if (typeof currentElement !== 'undefined' && typeof elements !== 'undefined' && elements[elem]) {
+        currentElement = elem;
+        // sync with Sandboxels UI
+        if (typeof updateCurrentElement === 'function') updateCurrentElement(elem);
+        // visual feedback
+        document.querySelectorAll('#desert-toolbar button').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+        }
+    }
+}
+</script>
+
+
+<canvas id="sky-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;"></canvas>
+
+<script>
+(function initSky() {
+    var skyCanvas = document.getElementById('sky-canvas');
+    var ctx = skyCanvas.getContext('2d');
+    var W, H, stars = [], planets = [];
+    var t = 0;
+
+    function resize() {
+        W = skyCanvas.width  = window.innerWidth;
+        H = skyCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Generate stars
+    for (var i = 0; i < 180; i++) {
+        stars.push({
+            x: Math.random(),
+            y: Math.random() * 0.6,  // only top 60% = sky area
+            r: Math.random() * 1.2 + 0.2,
+            twinkle: Math.random() * Math.PI * 2,
+            speed: 0.01 + Math.random() * 0.02
+        });
+    }
+
+    // NYXA Planet — slow rotation, atmospheric glow
+    var nyxaPlanet = {
+        x: 0.78, y: 0.18,   // top-right area
+        baseR: 0,            // calculated from W
+        angle: 0,
+        // surface bands
+        bands: [
+            {y: -0.4, h: 0.15, color: '#1a3a2a'},
+            {y: -0.1, h: 0.25, color: '#2a4a3a'},
+            {y:  0.2, h: 0.2,  color: '#1a2a3a'},
+            {y:  0.45,h: 0.15, color: '#0a1a2a'},
+        ],
+        // entity dots — NYXA world model entities
+        entities: [
+            {angle: 0.5,  lat: 0.1,  color: '#7af0c8', label: 'Johannes'},
+            {angle: 2.1,  lat: -0.2, color: '#f0c87a', label: 'The Chat'},
+            {angle: 3.8,  lat: 0.3,  color: '#c87af0', label: 'NYXA'},
+            {angle: 5.1,  lat: -0.1, color: '#f07a7a', label: 'Digitalleria'},
+        ]
+    };
+
+    // Small moon
+    var moon = { angle: 0, dist: 0.12, r: 0.012, color: '#c8c0b0' };
+
+    function drawPlanet(p, px, py, pr) {
+        // atmosphere glow
+        var atmo = ctx.createRadialGradient(px, py, pr*0.85, px, py, pr*1.35);
+        atmo.addColorStop(0, 'rgba(40,180,120,0.18)');
+        atmo.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.beginPath();
+        ctx.arc(px, py, pr*1.35, 0, Math.PI*2);
+        ctx.fillStyle = atmo;
+        ctx.fill();
+
+        // base sphere gradient
+        var grad = ctx.createRadialGradient(px-pr*0.3, py-pr*0.3, pr*0.1, px, py, pr);
+        grad.addColorStop(0, '#2a5a4a');
+        grad.addColorStop(0.5,'#1a3a2a');
+        grad.addColorStop(1, '#050f0a');
+        ctx.beginPath();
+        ctx.arc(px, py, pr, 0, Math.PI*2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // surface bands (clipped to circle)
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(px, py, pr*0.99, 0, Math.PI*2);
+        ctx.clip();
+        p.bands.forEach(function(b) {
+            var by = py + b.y * pr;
+            ctx.fillStyle = b.color;
+            ctx.fillRect(px-pr, by, pr*2, b.h*pr);
+        });
+        ctx.restore();
+
+        // polar ice caps
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(px, py, pr*0.99, 0, Math.PI*2);
+        ctx.clip();
+        var iceCap = ctx.createRadialGradient(px, py-pr, 0, px, py-pr*0.7, pr*0.4);
+        iceCap.addColorStop(0,'rgba(200,230,255,0.7)');
+        iceCap.addColorStop(1,'rgba(200,230,255,0)');
+        ctx.fillStyle = iceCap;
+        ctx.fillRect(px-pr, py-pr, pr*2, pr*0.5);
+        ctx.restore();
+
+        // entity dots — NYXA world model
+        p.entities.forEach(function(e) {
+            var ex = px + Math.cos(e.angle + p.angle) * pr * 0.7;
+            var ey = py + e.lat * pr + Math.sin(e.angle + p.angle) * pr * 0.1;
+            // only show on visible hemisphere
+            if (Math.cos(e.angle + p.angle) > -0.3) {
+                ctx.beginPath();
+                ctx.arc(ex, ey, Math.max(1.5, pr*0.04), 0, Math.PI*2);
+                ctx.fillStyle = e.color;
+                ctx.fill();
+                // subtle glow
+                var dg = ctx.createRadialGradient(ex,ey,0,ex,ey,pr*0.12);
+                dg.addColorStop(0, e.color.replace(')',',0.4)').replace('rgb','rgba'));
+                dg.addColorStop(1,'rgba(0,0,0,0)');
+                ctx.beginPath();
+                ctx.arc(ex, ey, pr*0.12, 0, Math.PI*2);
+                ctx.fillStyle = dg;
+                ctx.fill();
+            }
+        });
+
+        // terminator line (day/night)
+        var term = ctx.createLinearGradient(px+pr*0.2, py, px+pr*0.6, py);
+        term.addColorStop(0,'rgba(0,0,0,0)');
+        term.addColorStop(1,'rgba(0,0,0,0.55)');
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(px, py, pr*0.99, 0, Math.PI*2);
+        ctx.clip();
+        ctx.fillStyle = term;
+        ctx.fillRect(px, py-pr, pr, pr*2);
+        ctx.restore();
+
+        // rim light
+        var rim = ctx.createRadialGradient(px, py, pr*0.88, px, py, pr*1.02);
+        rim.addColorStop(0,'rgba(0,0,0,0)');
+        rim.addColorStop(0.7,'rgba(0,0,0,0)');
+        rim.addColorStop(1,'rgba(60,200,140,0.22)');
+        ctx.beginPath();
+        ctx.arc(px, py, pr, 0, Math.PI*2);
+        ctx.fillStyle = rim;
+        ctx.fill();
+    }
+
+    function frame() {
+        ctx.clearRect(0, 0, W, H);
+        t += 0.004;
+
+        // deep space gradient
+        var bg = ctx.createLinearGradient(0,0,0,H*0.65);
+        bg.addColorStop(0,'#000408');
+        bg.addColorStop(1,'#00080f');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H*0.65);
+
+        // stars
+        stars.forEach(function(s) {
+            var alpha = 0.5 + 0.5*Math.sin(t*s.speed*60 + s.twinkle);
+            ctx.beginPath();
+            ctx.arc(s.x*W, s.y*H, s.r, 0, Math.PI*2);
+            ctx.fillStyle = 'rgba(255,255,255,'+alpha+')';
+            ctx.fill();
+        });
+
+        // NYXA planet
+        var pr = Math.floor(W * 0.072);
+        var px = nyxaPlanet.x * W;
+        var py = nyxaPlanet.y * H;
+        nyxaPlanet.angle += 0.0003;
+        drawPlanet(nyxaPlanet, px, py, pr);
+
+        // moon orbit
+        moon.angle += 0.0008;
+        var mx = px + Math.cos(moon.angle) * W * moon.dist;
+        var my = py + Math.sin(moon.angle) * W * moon.dist * 0.35;
+        var mr = Math.max(2, W * moon.r);
+        var mg = ctx.createRadialGradient(mx-mr*0.2, my-mr*0.2, 0, mx, my, mr);
+        mg.addColorStop(0,'#e8e0d0');
+        mg.addColorStop(1,'#706860');
+        ctx.beginPath();
+        ctx.arc(mx, my, mr, 0, Math.PI*2);
+        ctx.fillStyle = mg;
+        ctx.fill();
+
+        // NYXA label
+        ctx.font = (Math.max(9,W*0.012))+'px monospace';
+        ctx.fillStyle = 'rgba(100,200,140,0.5)';
+        ctx.fillText('NYXA-1', px + pr + 4, py - pr*0.3);
+
+        requestAnimationFrame(frame);
+    }
+
+    frame();
+    console.log("[Sky] NYXA planet renderer started");
 })();
 </script>
 
