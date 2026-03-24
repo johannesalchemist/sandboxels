@@ -20862,10 +20862,13 @@ body > *:not(#totalWrapper):not(script):not(style) { display: none !important; }
 #gameDiv { padding: 0 !important; flex: 1 !important; }
 #canvasDiv { width: 100% !important; }
 #game { display: block !important; }
-.controlButton { min-height: 44px !important; min-width: 44px !important; font-size: 14px !important; touch-action: manipulation !important; }
-#controls { padding: 4px 4px !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+.controlButton { min-height: 32px !important; min-width: 32px !important; max-height: 32px !important; font-size: 11px !important; padding: 2px 6px !important; touch-action: manipulation !important; }
+#controls { padding: 2px 2px !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+#toolControls { display: flex !important; flex-wrap: nowrap !important; gap: 2px !important; }
+#categoryControls { font-size: 11px !important; }
 #elementControls { flex-wrap: nowrap !important; overflow-x: auto !important; }
-.elementButton { min-width: 48px !important; min-height: 44px !important; }
+.elementButton { min-width: 38px !important; min-height: 30px !important; max-height: 30px !important; font-size: 10px !important; padding: 2px 4px !important; }
+#underDiv { max-height: 25vh !important; overflow: hidden !important; }
 html, body { background: #000 !important; overflow: hidden !important; }
 #pagetitle { display: none !important; }
 #extraInfo { display: none !important; }
@@ -20874,10 +20877,13 @@ html, body { background: #000 !important; overflow: hidden !important; }
 #gameDiv { padding: 0 !important; }
 #canvasDiv { width: 100vw !important; height: 100vh !important; }
 #game { display: block !important; }
-.controlButton { min-height: 44px !important; min-width: 44px !important; font-size: 14px !important; touch-action: manipulation !important; }
-#controls { padding: 4px 4px !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+.controlButton { min-height: 32px !important; min-width: 32px !important; max-height: 32px !important; font-size: 11px !important; padding: 2px 6px !important; touch-action: manipulation !important; }
+#controls { padding: 2px 2px !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+#toolControls { display: flex !important; flex-wrap: nowrap !important; gap: 2px !important; }
+#categoryControls { font-size: 11px !important; }
 #elementControls { flex-wrap: nowrap !important; overflow-x: auto !important; }
-.elementButton { min-width: 48px !important; min-height: 44px !important; }
+.elementButton { min-width: 38px !important; min-height: 30px !important; max-height: 30px !important; font-size: 10px !important; padding: 2px 4px !important; }
+#underDiv { max-height: 25vh !important; overflow: hidden !important; }
 </style>
 </head>
 
@@ -21577,7 +21583,7 @@ if (document.referrer && document.referrer.indexOf("r74n.") === -1) {
     autoResizeCanvas = function(clear, ratio) {
         var ps = parseInt(settings && settings.pixelsize) || 5;
         var nw = Math.ceil(window.innerWidth  / ps) * ps;
-        var nh = Math.ceil(window.innerHeight * 0.72 / ps) * ps;
+        var nh = Math.ceil(window.innerHeight * 0.76 / ps) * ps;
         if (nw > 1400) nw = 1400;
         resizeCanvas(nh, nw, ps, clear);
     };
