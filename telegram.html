@@ -21549,6 +21549,24 @@ if (document.referrer && document.referrer.indexOf("r74n.") === -1) {
 	gtag('config', 'UA-93720349-9');
 </script>
 
+
+<script src="adenium-mod.js"></script>
+<script>
+// Auto-load desert preset once game is ready
+(function waitForGame() {
+    if (typeof createPixel !== "undefined" && typeof elements !== "undefined" && typeof elements.sand !== "undefined") {
+        setTimeout(function() {
+            if (typeof loadDesertPreset === "function") {
+                loadDesertPreset();
+                console.log("[Adenium] Desert preset auto-loaded.");
+            }
+        }, 800);
+    } else {
+        setTimeout(waitForGame, 200);
+    }
+})();
+</script>
+
 </body>
 
 </html>
