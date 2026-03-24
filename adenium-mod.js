@@ -589,114 +589,69 @@ eListAdd("SOIL", ["wet_sand", "sand"]);  // already there but be safe
 window.loadDesertPreset = function() {
     if (typeof clearAll === "function") clearAll();
 
-    const W = (typeof width  !== 'undefined' ? width  : 150);
-    const H = (typeof height !== 'undefined' ? height : 100);
-    // Ground sits at 55% of canvas height
-    const floorY = Math.floor(H * 0.55);
+    const W = (typeof width  !== "undefined" ? width  : 150);
+    const H = (typeof height !== "undefined" ? height : 80);
 
-    // 1. Full-width stone base — sand won't fall through
-    for (let x = 0; x < W; x++) {
-        for (let y = floorY + 1; y < H; y++) {
+    // Flat stone floor at bottom 30%
+    const floorY = Math.floor(H * 0.72);
+    for (let x = 0; x < W; x++)
+        for (let y = floorY; y < H; y++)
             createPixel("stone", x, y);
-        }
-    }
 
-    // 2. Compute dune heights — store per column
-    const duneH = [];
+    // Sand layer: flat with gentle bumps, 8px deep
+    const sandTop = [];
     for (let x = 0; x < W; x++) {
-        const d = Math.floor(
-            Math.sin(x * 0.04) * 6 +
-            Math.sin(x * 0.015) * 10 +
-            Math.sin(x * 0.008) * 5
-        );
-        duneH[x] = d;
-    }
-
-    // 3. Sand on top of stone following dune profile
-    for (let x = 0; x < W; x++) {
-        const top = floorY + duneH[x];
-        for (let y = top; y <= floorY && y < H; y++) {
+        const bump = Math.round(Math.sin(x * 0.07) * 3 + Math.sin(x * 0.02) * 4);
+        const top  = floorY - 8 + bump;
+        sandTop[x] = top;
+        for (let y = top; y < floorY; y++)
             createPixel("sand", x, y);
-        }
     }
 
-    // 4. Plant position — find actual surface at cx
-    const cx  = Math.floor(W * 0.42);
-    const surfaceY = floorY + duneH[cx]; // actual top of sand at cx
-    const base = surfaceY - 1;           // one pixel above sand
+    // Plant at x=45%, grounded exactly on sand surface
+    const cx   = Math.floor(W * 0.45);
+    const base = sandTop[cx] - 1; // one above sand top
 
-    // 5. Caudex — fat base, sits ON the sand
-    const caudexShape = [
-        [-1, 0],[0, 0],[1, 0],
-        [-1,-1],[0,-1],[1,-1],
-        [-1,-2],[0,-2],[1,-2],
-        [0,-3],
-    ];
-    for (const [dx,dy] of caudexShape) {
+    // Caudex
+    [[0,0],[-1,0],[1,0],[-1,-1],[0,-1],[1,-1],[0,-2],[-1,-2],[1,-2],[0,-3]]
+    .forEach(([dx,dy]) => {
         const x = cx+dx, y = base+dy;
-        if (x>=0 && x<W && y>=0 && y<H) {
+        if (x>=0&&x<W&&y>=0&&y<H) {
             createPixel("adenium_trunk", x, y);
-            if (pixelMap[x]?.[y]) {
-                pixelMap[x][y].moisture = 55;
-                pixelMap[x][y].age = 1500;
-                pixelMap[x][y].height = Math.abs(dy)+1;
-            }
+            if (pixelMap[x]?.[y]) { pixelMap[x][y].moisture=55; pixelMap[x][y].age=1500; pixelMap[x][y].height=Math.abs(dy)+1; }
         }
-    }
-
-    // 6. Stem
-    for (let i = 4; i <= 8; i++) {
-        const x = cx, y = base-i;
-        if (y>=0 && y<H) {
-            createPixel("adenium_trunk", x, y);
-            if (pixelMap[x]?.[y]) { pixelMap[x][y].moisture=55; pixelMap[x][y].age=1200; pixelMap[x][y].height=i; }
-        }
-    }
-
-    // 7. Branches
-    [[-1,-9],[-2,-10],[-2,-11],[-3,-11]].forEach(([dx,dy])=>{
-        const x=cx+dx, y=base+dy;
-        if(x>=0&&y>=0&&y<H){ createPixel("adenium_branch",x,y); if(pixelMap[x]?.[y]){pixelMap[x][y].moisture=50;pixelMap[x][y].age=800;} }
-    });
-    [[1,-9],[2,-10],[2,-11],[3,-11]].forEach(([dx,dy])=>{
-        const x=cx+dx, y=base+dy;
-        if(x<W&&y>=0&&y<H){ createPixel("adenium_branch",x,y); if(pixelMap[x]?.[y]){pixelMap[x][y].moisture=50;pixelMap[x][y].age=800;} }
     });
 
-    // 8. Flowers at tips
-    [[-3,-12],[3,-12],[-2,-12],[2,-12],[0,-12]].forEach(([dx,dy])=>{
-        const x=cx+dx, y=base+dy;
-        if(x>=0&&x<W&&y>=0&&y<H){ createPixel("adenium_flower",x,y); if(pixelMap[x]?.[y]){pixelMap[x][y].moisture=48;pixelMap[x][y].age=100;} }
+    // Stem
+    for (let i=4; i<=8; i++) {
+        const y = base-i;
+        if (y>=0) { createPixel("adenium_trunk", cx, y); if(pixelMap[cx]?.[y]){pixelMap[cx][y].moisture=55;pixelMap[cx][y].age=1200;pixelMap[cx][y].height=i;} }
+    }
+
+    // Branches
+    [[-1,-9],[-2,-10],[-3,-11]].forEach(([dx,dy])=>{
+        const x=cx+dx,y=base+dy; if(x>=0&&y>=0){createPixel("adenium_branch",x,y);if(pixelMap[x]?.[y]){pixelMap[x][y].moisture=50;pixelMap[x][y].age=800;}}
+    });
+    [[1,-9],[2,-10],[3,-11]].forEach(([dx,dy])=>{
+        const x=cx+dx,y=base+dy; if(x<W&&y>=0){createPixel("adenium_branch",x,y);if(pixelMap[x]?.[y]){pixelMap[x][y].moisture=50;pixelMap[x][y].age=800;}}
     });
 
-    // 9. Anchor — fill sand directly under caudex so plant is grounded
-    for (let dx = -2; dx <= 2; dx++) {
-        const x = cx + dx;
-        if (x < 0 || x >= W) continue;
-        // fill from base down to floorY
-        for (let y = base + 1; y <= floorY && y < H; y++) {
-            if (isEmpty(x, y)) createPixel("sand", x, y);
-        }
-    }
+    // Flowers
+    [[-3,-12],[-1,-12],[0,-12],[1,-12],[3,-12]].forEach(([dx,dy])=>{
+        const x=cx+dx,y=base+dy; if(x>=0&&x<W&&y>=0){createPixel("adenium_flower",x,y);if(pixelMap[x]?.[y]){pixelMap[x][y].moisture=48;pixelMap[x][y].age=100;}}
+    });
 
-    // 10. Water pool — sits in a dune valley to the right
-    // Find a low dune point right of center
-    let waterX = cx + 20;
-    let lowestDune = 9999;
-    for (let x = cx+15; x < Math.min(W-5, cx+40); x++) {
-        if (duneH[x] < lowestDune) { lowestDune = duneH[x]; waterX = x; }
-    }
-    // Fill a small bowl with fine_water — 8px wide, 3px deep
-    for (let x = waterX-3; x <= waterX+4; x++) {
-        if (x < 0 || x >= W) continue;
-        const sandTop = floorY + duneH[x];
-        for (let y = sandTop-3; y < sandTop; y++) {
+    // Water pool: 10px right, sits on sand surface
+    const wx = cx + 12;
+    for (let x=wx; x<wx+8&&x<W; x++) {
+        const top = sandTop[x] - 4;
+        for (let y=top; y<sandTop[x]; y++)
             if (y>=0) createPixel("fine_water", x, y);
-        }
     }
 
-    console.log("[Adenium] Preset loaded — grid:", W, "x", H, "| plant at x:", cx, "surfaceY:", surfaceY, "| water at x:", waterX);
+    console.log("[Adenium] Preset — grid:", W, "x", H, "plant:", cx, base);
 };
+
 
 console.log("[Adenium Mod] Loaded — elements: fine_water, adenium_seed, adenium_sprout, adenium_young, adenium_trunk, adenium_branch, adenium_bud, adenium_flower, adenium_pod, adenium_silk_seed + stress states");
 
