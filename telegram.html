@@ -21552,18 +21552,32 @@ if (document.referrer && document.referrer.indexOf("r74n.") === -1) {
 
 <script src="adenium-mod.js"></script>
 <script>
-// Auto-load desert preset once game is ready
-(function waitForGame() {
-    if (typeof createPixel !== "undefined" && typeof elements !== "undefined" && typeof elements.sand !== "undefined") {
-        setTimeout(function() {
-            if (typeof loadDesertPreset === "function") {
-                loadDesertPreset();
-                console.log("[Adenium] Desert preset auto-loaded.");
-            }
-        }, 800);
-    } else {
-        setTimeout(waitForGame, 200);
+// Override canvas sizing for full Telegram viewport
+(function patchResize() {
+    if (typeof autoResizeCanvas === "undefined") {
+        setTimeout(patchResize, 100); return;
     }
+    var _orig = autoResizeCanvas;
+    autoResizeCanvas = function(clear, ratio) {
+        var ps = parseInt(settings && settings.pixelsize) || 5;
+        var nw = Math.ceil(window.innerWidth  / ps) * ps;
+        var nh = Math.ceil(window.innerHeight * 0.72 / ps) * ps;
+        if (nw > 1400) nw = 1400;
+        resizeCanvas(nh, nw, ps, clear);
+    };
+    autoResizeCanvas(false);
+    console.log("[TG] Canvas resized to full viewport");
+})();
+
+// Load desert preset AFTER resize + clearAll settle
+(function waitAndLoad() {
+    if (typeof loadDesertPreset === "undefined" || typeof width === "undefined" || width < 10) {
+        setTimeout(waitAndLoad, 300); return;
+    }
+    setTimeout(function() {
+        loadDesertPreset();
+        console.log("[Adenium] Desert preset loaded — grid:", width, "x", height);
+    }, 600);
 })();
 </script>
 
