@@ -592,20 +592,26 @@ window.loadDesertPreset = function() {
     const W = (typeof width  !== "undefined" ? width  : 150);
     const H = (typeof height !== "undefined" ? height : 80);
 
-    // Flat stone floor at bottom 30%
-    const floorY = Math.floor(H * 0.72);
-    for (let x = 0; x < W; x++)
-        for (let y = floorY; y < H; y++)
-            createPixel("stone", x, y);
+    // Strict bounds — pixelMap is 0..(W-1) x 0..(H-1)
+    const maxX = W - 1, maxY = H - 1;
+    const floorY = Math.min(Math.floor(H * 0.72), maxY - 1);
 
-    // Sand layer: flat with gentle bumps, 8px deep
+    function safe(elem, x, y) {
+        if (x < 0 || x > maxX || y < 0 || y > maxY) return;
+        createPixel(elem, x, y);
+    }
+
+    for (let x = 0; x <= maxX; x++)
+        for (let y = floorY; y <= maxY; y++)
+            safe("stone", x, y);
+
     const sandTop = [];
-    for (let x = 0; x < W; x++) {
+    for (let x = 0; x <= maxX; x++) {
         const bump = Math.round(Math.sin(x * 0.07) * 3 + Math.sin(x * 0.02) * 4);
-        const top  = floorY - 8 + bump;
+        const top  = Math.max(1, Math.min(floorY - 1, floorY - 8 + bump));
         sandTop[x] = top;
         for (let y = top; y < floorY; y++)
-            createPixel("sand", x, y);
+            safe("sand", x, y);
     }
 
     // Plant at x=45%, grounded exactly on sand surface
@@ -616,8 +622,8 @@ window.loadDesertPreset = function() {
     [[0,0],[-1,0],[1,0],[-1,-1],[0,-1],[1,-1],[0,-2],[-1,-2],[1,-2],[0,-3]]
     .forEach(([dx,dy]) => {
         const x = cx+dx, y = base+dy;
-        if (x>=0&&x<W&&y>=0&&y<H) {
-            createPixel("adenium_trunk", x, y);
+        if (x>=0&&x<=maxX&&y>=0&&y<=maxY) {
+            safe("adenium_trunk", x, y);
             if (pixelMap[x]?.[y]) { pixelMap[x][y].moisture=55; pixelMap[x][y].age=1500; pixelMap[x][y].height=Math.abs(dy)+1; }
         }
     });
@@ -625,20 +631,20 @@ window.loadDesertPreset = function() {
     // Stem
     for (let i=4; i<=8; i++) {
         const y = base-i;
-        if (y>=0) { createPixel("adenium_trunk", cx, y); if(pixelMap[cx]?.[y]){pixelMap[cx][y].moisture=55;pixelMap[cx][y].age=1200;pixelMap[cx][y].height=i;} }
+        if (y>=0&&y<=maxY&&cx>=0&&cx<=maxX) { safe("adenium_trunk", cx, y); if(pixelMap[cx]?.[y]){pixelMap[cx][y].moisture=55;pixelMap[cx][y].age=1200;pixelMap[cx][y].height=i;} }
     }
 
     // Branches
     [[-1,-9],[-2,-10],[-3,-11]].forEach(([dx,dy])=>{
-        const x=cx+dx,y=base+dy; if(x>=0&&y>=0){createPixel("adenium_branch",x,y);if(pixelMap[x]?.[y]){pixelMap[x][y].moisture=50;pixelMap[x][y].age=800;}}
+        const x=cx+dx,y=base+dy; if(x>=0&&x<=maxX&&y>=0&&y<=maxY){safe("adenium_branch",x,y);if(pixelMap[x]?.[y]){pixelMap[x][y].moisture=50;pixelMap[x][y].age=800;}}
     });
     [[1,-9],[2,-10],[3,-11]].forEach(([dx,dy])=>{
-        const x=cx+dx,y=base+dy; if(x<W&&y>=0){createPixel("adenium_branch",x,y);if(pixelMap[x]?.[y]){pixelMap[x][y].moisture=50;pixelMap[x][y].age=800;}}
+        const x=cx+dx,y=base+dy; if(x>=0&&x<=maxX&&y>=0&&y<=maxY){safe("adenium_branch",x,y);if(pixelMap[x]?.[y]){pixelMap[x][y].moisture=50;pixelMap[x][y].age=800;}}
     });
 
     // Flowers
     [[-3,-12],[-1,-12],[0,-12],[1,-12],[3,-12]].forEach(([dx,dy])=>{
-        const x=cx+dx,y=base+dy; if(x>=0&&x<W&&y>=0){createPixel("adenium_flower",x,y);if(pixelMap[x]?.[y]){pixelMap[x][y].moisture=48;pixelMap[x][y].age=100;}}
+        const x=cx+dx,y=base+dy; if(x>=0&&x<=maxX&&y>=0&&y<=maxY){safe("adenium_flower",x,y);if(pixelMap[x]?.[y]){pixelMap[x][y].moisture=48;pixelMap[x][y].age=100;}}
     });
 
     // Water pool: 10px right, sits on sand surface
@@ -646,7 +652,7 @@ window.loadDesertPreset = function() {
     for (let x=wx; x<wx+8&&x<W; x++) {
         const top = sandTop[x] - 4;
         for (let y=top; y<sandTop[x]; y++)
-            if (y>=0) createPixel("fine_water", x, y);
+            if (y>=0&&y<=maxY&&x>=0&&x<=maxX) safe("fine_water", x, y);
     }
 
     console.log("[Adenium] Preset — grid:", W, "x", H, "plant:", cx, base);

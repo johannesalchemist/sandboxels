@@ -21692,7 +21692,15 @@ if (document.referrer && document.referrer.indexOf("r74n.") === -1) {
     document.body.style.background = "transparent";
     document.documentElement.style.background = "transparent";
 
-    // 3. Keep settings.bg transparent so Sandboxels CSS doesn't override
+    // 3. Intercept canvas.style.backgroundColor so Sandboxels never sets it
+    var gc = document.getElementById("game");
+    if (gc) {
+        Object.defineProperty(gc.style, "backgroundColor", {
+            set: function() {}, // ignore all attempts to set background
+            get: function() { return "transparent"; },
+            configurable: true
+        });
+    }
     settings.bg = "transparent";
 
     // 4. Load preset
